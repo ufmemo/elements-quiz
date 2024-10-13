@@ -2,15 +2,31 @@ import styled from "styled-components";
 
 import { Symbol } from "./Symbol";
 import { ElementName } from "./ElementName";
-import { DndContext, DragEndEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragEndEvent,
+  useSensors,
+  TouchSensor,
+  PointerSensor,
+  useSensor,
+} from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+
 import { useGame } from "../hooks/useGame";
 import { useEffect, useState } from "react";
 import { Feedback } from "./Feedback";
 import { GameOver } from "./GameOver";
 
+function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
+
 export function Board() {
   const { elementList, onDrop, correct, wrong, incorrect, reset } = useGame();
+
+  const touchSensor = useSensor(TouchSensor);
+  const pointerSensor = useSensor(PointerSensor);
+  const sensors = useSensors(isTouchDevice() ? touchSensor : pointerSensor);
 
   const [showCorrect, setShowCorrect] = useState(false);
   const [showWrong, setShowWrong] = useState(false);
@@ -71,6 +87,7 @@ export function Board() {
       </ScoreBoard>
 
       <DndContext
+        sensors={sensors}
         onDragEnd={handleDragEnd}
         onDragStart={handleDragStart}
         modifiers={[restrictToWindowEdges]}

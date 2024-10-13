@@ -79,8 +79,9 @@ function IncorrectAnswer({ incorrect }: { incorrect: Incorrect }) {
 
   return (
     <li>
-      <span>{draggedElement.name}</span> is <Card>{draggedElement.symbol}</Card>{" "}
-      not <Card>{droppedOnElement.symbol}</Card>
+      <span style={{ textDecoration: "underline" }}>{draggedElement.name}</span>{" "}
+      is <Card>{draggedElement.symbol}</Card> not{" "}
+      <Card>{droppedOnElement.symbol}</Card>
     </li>
   );
 }
@@ -91,7 +92,6 @@ const Wrapper = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  font-family: Arial, Helvetica, sans-serif;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
@@ -117,6 +117,9 @@ const Grade = styled.p`
   color: green;
   padding: 0;
   margin: 0;
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
 `;
 
 const Page = styled.div`
@@ -130,10 +133,22 @@ const Page = styled.div`
   bottom: 5%;
   z-index: 1002;
   padding: 36px;
+
+  @media (max-width: 768px) {
+    top: 5%;
+    left: 5%;
+    right: 5%;
+    bottom: 5%;
+  }
+
   h1 {
     text-align: center;
     font-size: 2rem;
     margin: 24px;
+    @media (max-width: 768px) {
+      font-size: 1rem;
+      margin: 12px;
+    }
   }
   display: flex;
   flex-direction: column;
@@ -146,11 +161,17 @@ const List = styled.ol`
   width: 60%;
   margin: 0 auto;
   list-style: none;
+  @media (max-width: 768px) {
+    width: 100%;
+  }
   li {
     margin: 0;
     padding: 24px 0;
     font-size: 1rem;
-    font-family: Arial, Helvetica, sans-serif;
+    @media (max-width: 768px) {
+      padding: 12px 0;
+      font-size: 0.8rem;
+    }
   }
 `;
 
@@ -159,6 +180,11 @@ const Card = styled.span`
   border: 2px solid black;
   border-radius: 4px;
   font-size: 1.5rem;
-  //drop shadow
+  background-color: white;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    padding: 2px 4px;
+  }
 `;

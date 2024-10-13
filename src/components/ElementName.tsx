@@ -28,10 +28,10 @@ export function ElementName({ element }: { element: IElement }) {
 const Wrapper = styled.li`
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  /* gap: 15px; */
 
   @media (max-width: 768px) {
-    gap: 4px;
+    /* gap: 4px; */
   }
   //not selectable
   user-select: none;
@@ -40,8 +40,8 @@ const Wrapper = styled.li`
     border: 4px solid #000;
     border-radius: 12px;
     background: none;
-    padding: 10px;
-    margin: 5px;
+    padding: 6px 10px;
+    margin: 1px;
     width: 220px;
     font-size: 1.6rem;
     background-color: #f0f0f0;
@@ -51,11 +51,10 @@ const Wrapper = styled.li`
     @media (max-width: 768px) {
       border: 2px solid #000;
       font-size: 1.2rem;
-      padding: 20px;
       margin: 5px;
       width: 120px;
       margin: 2px;
-      padding: 4px;
+      padding: 2px 4px;
     }
   }
 `;
