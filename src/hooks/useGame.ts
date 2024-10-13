@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { elements, IElement } from "../utils/elements";
 
-const COUNT = 20;
+const COUNT = 10;
 
 export type Incorrect = [IElement, IElement];
 

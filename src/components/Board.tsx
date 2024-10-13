@@ -36,29 +36,16 @@ export function Board() {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over) {
-      console.log(`Dropped ${active.id} over ${over.id}`);
+      // console.log(`Dropped ${active.id} over ${over.id}`);
       onDrop(String(active.id), String(over.id));
     }
-    document.body.style.overflow = ""; // Re-enable scrolling
+
+    document.body.classList.remove("no-scroll");
   };
 
-  useEffect(() => {
-    const handleDragStart = () => {
-      document.body.style.overflow = "hidden"; // Disable scrolling
-    };
-
-    const handleDragEnd = () => {
-      document.body.style.overflow = ""; // Re-enable scrolling
-    };
-
-    window.addEventListener("dragstart", handleDragStart);
-    window.addEventListener("dragend", handleDragEnd);
-
-    return () => {
-      window.removeEventListener("dragstart", handleDragStart);
-      window.removeEventListener("dragend", handleDragEnd);
-    };
-  }, []);
+  const handleDragStart = () => {
+    document.body.classList.add("no-scroll");
+  };
 
   return (
     <Wrapper>
@@ -83,7 +70,11 @@ export function Board() {
         </Score>
       </ScoreBoard>
 
-      <DndContext onDragEnd={handleDragEnd} modifiers={[restrictToWindowEdges]}>
+      <DndContext
+        onDragEnd={handleDragEnd}
+        onDragStart={handleDragStart}
+        modifiers={[restrictToWindowEdges]}
+      >
         <Main>
           <Left>
             <SymbolList>
