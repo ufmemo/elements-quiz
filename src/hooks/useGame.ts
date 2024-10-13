@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { elements, IElement } from "../utils/elements";
 
+const COUNT = 20;
+
 export type Incorrect = [IElement, IElement];
 
 export function useGame() {
@@ -58,5 +60,5 @@ export function useGame() {
 
 function randomizeArray(array: IElement[]) {
   const newArray = [...array];
-  return newArray.sort(() => Math.random() - 0.5).splice(0, 3);
+  return newArray.sort(() => Math.random() - 0.5).splice(0, COUNT);
 }

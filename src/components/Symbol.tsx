@@ -18,7 +18,7 @@ export function Symbol({ element }: { element: IElement }) {
 }
 
 const Wrapper = styled.li<{ $isover: string }>`
-  border: 4px solid ${({ $isover }) => ($isover === "true" ? "red" : "#000")};
+  border: 4px solid ${({ $isover }) => ($isover === "true" ? "#007e49" : "#000")};
   border-radius: 12px;
   padding: 20px;
   margin: 5px;
@@ -45,7 +45,7 @@ const Position = styled.i<{ $isover: string }>`
   font-style: normal;
   font-weight: 600;
   color: #fff;
-  background-color: ${({ $isover }) => ($isover === "true" ? "red" : "#000")};
+  background-color: ${({ $isover }) => ($isover === "true" ? "#007e49" : "#000")};
   width: 24px;
   height: 24px;
   border-radius: 50%;
