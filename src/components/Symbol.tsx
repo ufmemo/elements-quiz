@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { IElement } from "./elements";
+import { IElement } from "../utils/elements";
 import { useDroppable } from "@dnd-kit/core";
 
 export function Symbol({ element }: { element: IElement }) {

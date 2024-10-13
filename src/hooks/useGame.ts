@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { elements, IElement } from "./elements";
+import { elements, IElement } from "../utils/elements";
 
 export type Incorrect = [IElement, IElement];
 

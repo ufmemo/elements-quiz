@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { IElement } from "./elements";
+import { IElement } from "../utils/elements";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 

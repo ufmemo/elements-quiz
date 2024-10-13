@@ -1,4 +1,4 @@
-import { elements } from "./elements";
+import { elements } from "../utils/elements";
 
 export function getElementNameBySymbol(symbol: string): string {
   const element = elements.find((e) => e.symbol === symbol);

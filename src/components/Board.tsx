@@ -4,7 +4,7 @@ import { Symbol } from "./Symbol";
 import { ElementName } from "./ElementName";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { useGame } from "./useGame";
+import { useGame } from "../hooks/useGame";
 import { useEffect, useState } from "react";
 import { Feedback } from "./Feedback";
 import { GameOver } from "./GameOver";

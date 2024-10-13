@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { Incorrect } from "./useGame";
+import { Incorrect } from "../hooks/useGame";
 import { useEffect, useRef } from "react";
 
 import confetti from "canvas-confetti";
