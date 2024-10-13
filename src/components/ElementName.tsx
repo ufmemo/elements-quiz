@@ -30,6 +30,9 @@ const Wrapper = styled.li`
   flex-direction: column;
   gap: 15px;
 
+  @media (max-width: 768px) {
+    gap: 4px;
+  }
   //not selectable
   user-select: none;
   cursor: grab;
@@ -44,5 +47,15 @@ const Wrapper = styled.li`
     background-color: #f0f0f0;
     box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
     cursor: grab;
+
+    @media (max-width: 768px) {
+      border: 2px solid #000;
+      font-size: 1.2rem;
+      padding: 20px;
+      margin: 5px;
+      width: 120px;
+      margin: 2px;
+      padding: 4px;
+    }
   }
 `;

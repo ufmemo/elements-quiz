@@ -111,7 +111,6 @@ export function Board() {
 }
 
 const Wrapper = styled.div`
-  /* border: 1px solid red; */
   font-family: Helvetica, sans-serif;
 `;
 
@@ -120,6 +119,15 @@ const Title = styled.h1`
   font-size: 2rem;
   margin: 24px;
   user-select: none;
+  line-height: 5rem;
+
+  @media (max-width: 768px) {
+    text-align: left;
+    font-size: 1rem;
+    margin: 12px;
+    line-height: 2rem;
+    width: 50%;
+  }
 `;
 
 const ScoreBoard = styled.div`
@@ -130,6 +138,11 @@ const ScoreBoard = styled.div`
   right: 40px;
   top: 0px;
   user-select: none;
+
+  @media (max-width: 768px) {
+    gap: 4px;
+    right: 20px;
+  }
 `;
 
 const Score = styled.h1<{ $color?: string }>`
@@ -138,6 +151,15 @@ const Score = styled.h1<{ $color?: string }>`
   padding: 24px;
   border-radius: 12px;
   position: relative;
+
+  @media (max-width: 768px) {
+    padding: 12px;
+    border-radius: 6px;
+    height: 12px;
+    width: 12px;
+    font-size: 1rem;
+    line-height: 1rem;
+  }
 
   span {
     position: absolute;
@@ -149,6 +171,11 @@ const Score = styled.h1<{ $color?: string }>`
     text-align: center;
     font-family: Arial, Helvetica, sans-serif;
     text-transform: uppercase;
+
+    @media (max-width: 768px) {
+      font-size: 0.4rem;
+      display: none;
+    }
   }
 `;
 
@@ -159,6 +186,11 @@ const Main = styled.div`
   display: grid;
   grid-template-columns: 7fr 1fr;
   gap: 36px;
+
+  @media (max-width: 768px) {
+    margin-top: 12px;
+    gap: 12px;
+  }
 `;
 
 const Left = styled.div`
@@ -178,6 +210,10 @@ const SymbolList = styled.ul`
   justify-content: center;
   flex-wrap: wrap;
   gap: 15px;
+  padding: 0;
+  @media (max-width: 768px) {
+    gap: 4px;
+  }
 `;
 
 const ElementNameList = styled.ul`
