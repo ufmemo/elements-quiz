@@ -1,8 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import App from "./components/App";
 import { elementBySymbol, elements as ALL } from "./core/elements";
 import { load } from "./store/save";
+
+/**
+ * Every test renders through StrictMode, because main.tsx does. StrictMode
+ * double-invokes effects in dev, and rendering bare hid a real bug: a
+ * pushState/back() pair in an effect bounced the learner straight out of any
+ * session they opened.
+ */
+function render(ui: React.ReactElement) {
+  return rtlRender(<StrictMode>{ui}</StrictMode>);
+}
 
 // jsdom has no canvas; confetti only fires on a perfect run.
 vi.mock("canvas-confetti", () => ({ default: { create: () => () => Promise.resolve() } }));

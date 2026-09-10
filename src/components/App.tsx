@@ -69,6 +69,28 @@ export default function App() {
 
   const home = useCallback(() => setRoute({ at: "today" }), []);
 
+  /**
+   * iOS Safari's left-edge swipe fires history.back(). Without an entry of our
+   * own that navigates the learner out of the app entirely, mid-session.
+   *
+   * Both effects below must be idempotent: StrictMode double-invokes them in
+   * dev, and popstate is delivered asynchronously — so a pushState paired with
+   * a back() in cleanup lands the queued popstate on the *remounted* listener
+   * and bounces you straight home.
+   */
+  useEffect(() => {
+    const onPop = () => setRoute({ at: "today" });
+    addEventListener("popstate", onPop);
+    return () => removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    if (route.at === "today") return;
+    // One marker entry covers every non-root screen; never stack them.
+    if ((history.state as { eq?: boolean } | null)?.eq) return;
+    history.pushState({ eq: true }, "");
+  }, [route.at]);
+
   return (
     <>
       <GlobalStyle $reduced={reduced} />

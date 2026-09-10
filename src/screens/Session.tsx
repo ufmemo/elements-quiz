@@ -32,6 +32,7 @@ const HOLD_CORRECT = 620;
 const HOLD_WRONG = 2200;
 
 interface Props {
+  /** Called by the × button. The back gesture is handled by App. */
   kind: SessionKind;
   cards: Card[];
   day: number;
@@ -63,21 +64,6 @@ export function Session({ kind, cards, day, save, update, onExit, onFinish }: Pr
 
   const card = currentCard(state);
   const timed = kind === "rush" && !save.settings.timerless;
-
-  /**
-   * iOS Safari's left-edge swipe fires history.back(). Without an entry of our
-   * own that navigates the learner out of the app entirely, mid-session.
-   */
-  useEffect(() => {
-    history.pushState({ session: true }, "");
-    const onPop = () => onExit();
-    addEventListener("popstate", onPop);
-    return () => {
-      removeEventListener("popstate", onPop);
-      if (history.state?.session) history.back();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -250,6 +236,8 @@ const shake = keyframes`
 
 const Wrap = styled.div<{ $verdict: "right" | "wrong" | null }>`
   min-height: 100dvh;
+  max-width: 460px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;

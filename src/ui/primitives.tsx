@@ -68,6 +68,9 @@ export const Zbadge = styled.i`
 export const Screen = styled.div`
   /* dvh, never vh — Safari's toolbar makes vh wrong for most of a session */
   min-height: 100dvh;
+  /* Phone-shaped even in a desktop window, rather than a stretched band. */
+  max-width: 460px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   background: ${C.paper};
