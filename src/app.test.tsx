@@ -1,0 +1,302 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import App from "./components/App";
+import { elementBySymbol, elements as ALL } from "./core/elements";
+import { load } from "./store/save";
+
+// jsdom has no canvas; confetti only fires on a perfect run.
+vi.mock("canvas-confetti", () => ({ default: { create: () => () => Promise.resolve() } }));
+
+const HOLD_CORRECT = 620;
+const HOLD_WRONG = 2200;
+
+beforeEach(() => {
+  localStorage.clear();
+  history.replaceState(null, "");
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+/** The symbol currently being asked, read off the prompt the learner sees. */
+function askedSymbol(): string {
+  const prompt = document.querySelector("[data-mode]") as HTMLElement;
+  const text = (prompt.textContent ?? "").trim();
+  // Match shows the symbol behind its atomic-number badge; the others show the name.
+  if (prompt.dataset.mode === "match") return text.replace(/^\d+/, "").trim();
+  const found = ALL.find((e) => e.name === text);
+  if (!found) throw new Error(`no element named "${text}"`);
+  return found.symbol;
+}
+
+function currentMode(): string {
+  return (document.querySelector("[data-mode]") as HTMLElement).dataset.mode!;
+}
+
+/** Answers the current card. */
+function answer(correctly: boolean) {
+  const symbol = askedSymbol();
+  const el = elementBySymbol(symbol)!;
+  const mode = currentMode();
+
+  if (mode === "match") {
+    const buttons = screen.getAllByRole("button");
+    const target = buttons.find((b) =>
+      correctly ? b.textContent === el.name : b.textContent && b.textContent !== el.name && b.dataset.opt,
+    );
+    fireEvent.click(target!);
+  } else if (mode === "reverse") {
+    const opts = [...document.querySelectorAll("[data-opt]")] as HTMLElement[];
+    const target = opts.find((b) =>
+      correctly ? b.dataset.opt === el.symbol : b.dataset.opt !== el.symbol,
+    );
+    fireEvent.click(target!);
+  } else {
+    const keys = [...document.querySelectorAll("[data-key]")] as HTMLElement[];
+    const wanted = correctly ? el.symbol : "";
+    if (correctly) {
+      for (const ch of wanted) {
+        const k = keys.find((x) => x.dataset.key === ch && !(x as HTMLButtonElement).disabled);
+        fireEvent.click(k!);
+      }
+    } else {
+      // Tap any wrong letters to fill the slots.
+      let taps = 0;
+      for (const k of keys) {
+        if (taps >= el.symbol.length) break;
+        if (k.dataset.key === el.symbol[taps]) continue;
+        fireEvent.click(k);
+        taps++;
+      }
+    }
+  }
+  act(() => {
+    vi.advanceTimersByTime(correctly ? HOLD_CORRECT + 50 : HOLD_WRONG + 50);
+  });
+  return el;
+}
+
+/**
+ * Parks every element in the far future except `symbol`, so the review queue is
+ * exactly one card. Without this the scheduler also introduces the day's five
+ * new elements, and the first card is whichever one the shuffle picked.
+ */
+function parkAllExcept(symbol: string, box: number) {
+  const mastery: Record<string, unknown> = {};
+  for (const e of ALL) {
+    mastery[e.symbol] = { box: 5, due: 9_999_999, introducedOn: 0, seen: 9, correct: 9 };
+  }
+  mastery[symbol] = { box, due: 0, introducedOn: 0, seen: box + 2, correct: box };
+  localStorage.setItem(
+    "elements-quiz/save",
+    JSON.stringify({ mastery, stats: { lastPlayedDay: 0, dayStreak: 1, totalAnswers: 9 } }),
+  );
+}
+
+function tap(name: RegExp) {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
+describe("Today", () => {
+  it("introduces five elements to a brand new learner", () => {
+    render(<App />);
+    expect(screen.getByText("5")).toBeDefined();
+    expect(screen.getByText(/elements due today/)).toBeDefined();
+    expect(screen.getByRole("button", { name: /Review 5 elements/ })).toBeDefined();
+  });
+
+  it("shows day one before anything is played", () => {
+    render(<App />);
+    expect(screen.getByText("Day one")).toBeDefined();
+  });
+
+  it("offers free practice instead of a locked door when nothing is due", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    for (let i = 0; i < 5; i++) answer(true);
+    tap(/^Done$/);
+    expect(screen.getByText("All caught up")).toBeDefined();
+    expect(screen.getByRole("button", { name: /Free practice/ })).toBeDefined();
+  });
+});
+
+describe("a full review session", () => {
+  it("plays five cards and reports a perfect run", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    for (let i = 0; i < 5; i++) answer(true);
+    expect(screen.getByText("5/5")).toBeDefined();
+    expect(screen.getByText("Every one right")).toBeDefined();
+  });
+
+  it("promotes every element it asked", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    for (let i = 0; i < 5; i++) answer(true);
+
+    const saved = load();
+    expect(Object.keys(saved.mastery)).toHaveLength(5);
+    expect(Object.values(saved.mastery).every((m) => m.box === 1)).toBe(true);
+    expect(saved.stats.totalAnswers).toBe(5);
+    expect(saved.stats.dayStreak).toBe(1);
+  });
+
+  it("counts a wrong answer and shows it on the results screen", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    const missed = answer(false);
+    for (let i = 0; i < 4; i++) answer(true);
+
+    expect(screen.getByText("4/5")).toBeDefined();
+    expect(screen.getByText("1 to see again")).toBeDefined();
+    const misses = screen.getByRole("list");
+    expect(within(misses).getByText(missed.symbol)).toBeDefined();
+  });
+
+  it("reveals the answer and its mnemonic after a miss", () => {
+    parkAllExcept("Na", 0);
+    render(<App />);
+    tap(/Review/);
+
+    const wrong = [...document.querySelectorAll("[data-opt]")].find(
+      (b) => (b as HTMLElement).dataset.opt !== "Na",
+    );
+    fireEvent.click(wrong!);
+
+    expect(screen.getByText(/is Sodium/)).toBeDefined();
+    expect(screen.getByText(/salt has no metal/)).toBeDefined();
+  });
+});
+
+describe("leaving a session", () => {
+  it("keeps answers already given — nothing is lost by quitting", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    answer(true);
+    answer(true);
+
+    tap(/Leave this session/);
+
+    const saved = load();
+    expect(Object.keys(saved.mastery)).toHaveLength(2);
+    expect(saved.stats.totalAnswers).toBe(2);
+    // Back on Today, with the two answered elements no longer due.
+    expect(screen.getByRole("button", { name: /Review 3 elements/ })).toBeDefined();
+  });
+
+  it("exits on the iOS edge-swipe instead of leaving the app", () => {
+    render(<App />);
+    tap(/Review 5 elements/);
+    expect(screen.queryByText(/elements due today/)).toBeNull();
+
+    act(() => {
+      dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(screen.getByText(/elements due today/)).toBeDefined();
+  });
+});
+
+describe("the exercise ladder", () => {
+  it("asks a new element with Match", () => {
+    parkAllExcept("Ag", 0);
+    render(<App />);
+    tap(/Review/);
+    expect(currentMode()).toBe("match");
+  });
+
+  it("asks a box-2 element with Reverse", () => {
+    parkAllExcept("Ag", 2);
+    render(<App />);
+    tap(/Review/);
+    expect(currentMode()).toBe("reverse");
+    expect(screen.getByText("Silver")).toBeDefined();
+  });
+
+  it("asks a box-3 element with Spell, and accepts the assembled symbol", () => {
+    parkAllExcept("Ag", 3);
+    render(<App />);
+    tap(/Review/);
+    expect(currentMode()).toBe("spell");
+
+    const keys = [...document.querySelectorAll("[data-key]")] as HTMLElement[];
+    expect(keys).toHaveLength(12); // a 12-key tray keeps single letters honest
+    for (const ch of "Ag") {
+      fireEvent.click(keys.find((k) => k.dataset.key === ch && !(k as HTMLButtonElement).disabled)!);
+    }
+    act(() => vi.advanceTimersByTime(HOLD_CORRECT + 50));
+
+    expect(load().mastery.Ag.box).toBe(4);
+  });
+
+  it("spells a single-letter symbol from the same 12-key tray", () => {
+    parkAllExcept("H", 3);
+    render(<App />);
+    tap(/Review/);
+    const keys = [...document.querySelectorAll("[data-key]")] as HTMLElement[];
+    expect(keys).toHaveLength(12);
+    fireEvent.click(keys.find((k) => k.dataset.key === "H")!);
+    act(() => vi.advanceTimersByTime(HOLD_CORRECT + 50));
+    expect(load().mastery.H.box).toBe(4);
+  });
+});
+
+describe("sound toggle", () => {
+  it("persists across a reload", () => {
+    const { unmount } = render(<App />);
+    tap(/Sound on/);
+    expect(load().settings.sound).toBe(false);
+    unmount();
+
+    render(<App />);
+    expect(screen.getByRole("button", { name: /Sound off/ })).toBeDefined();
+  });
+});
+
+describe("daily", () => {
+  it("marks itself played and does not disturb the review schedule", () => {
+    render(<App />);
+    tap(/^Daily/);
+    for (let i = 0; i < 6; i++) answer(true);
+    tap(/^Done$/);
+
+    const saved = load();
+    expect(Object.keys(saved.daily)).toHaveLength(1);
+    // Daily must not smuggle elements past the new-per-day cap.
+    expect(saved.mastery).toEqual({});
+    expect(screen.getByRole("button", { name: /Review 5 elements/ })).toBeDefined();
+  });
+});
+
+describe("rush", () => {
+  it("records a best score and leaves the review schedule alone", () => {
+    parkAllExcept("Ag", 5);
+    render(<App />);
+    tap(/^Rush/);
+
+    const dueBefore = load().mastery.Ag.due;
+    for (let i = 0; i < 3; i++) answer(true);
+    // End the run by letting the clock expire.
+    act(() => vi.advanceTimersByTime(61_000));
+
+    const saved = load();
+    expect(saved.rushBest).toBe(3);
+    // A lucky fast tap must not schedule an element 60 days out.
+    expect(saved.mastery.Ag.due).toBe(dueBefore);
+    expect(saved.mastery.Ag.box).toBe(5);
+  });
+});
+
+describe("timer toggle", () => {
+  it("persists and removes the clock from Rush", () => {
+    render(<App />);
+    tap(/Timer on/);
+    expect(load().settings.timerless).toBe(true);
+
+    tap(/^Rush/);
+    // With no clock there is a progress track instead of a countdown.
+    expect(screen.queryByText(/^\d+s$/)).toBeNull();
+  });
+});
