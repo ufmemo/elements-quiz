@@ -12,8 +12,11 @@ import {
   applyAnswer,
   dueCount,
   grade,
+  RUSH_MIN,
   recordTiming,
   rushPool,
+  rushProgress,
+  rushUnlocked,
   selectDue,
 } from "./scheduler";
 import {
@@ -353,18 +356,43 @@ describe("dueCount", () => {
 });
 
 describe("rushPool", () => {
-  it("falls back to everything for a brand new learner", () => {
-    expect(rushPool({})).toHaveLength(67);
+  it("is locked for a brand new learner", () => {
+    // Falling back to all 67 made day-one Rush indistinguishable from Review.
+    expect(rushPool({})).toHaveLength(0);
+    expect(rushUnlocked({})).toBe(false);
   });
 
-  it("uses strong elements once there are enough of them", () => {
+  it("stays locked below the threshold", () => {
     const mastery: MasteryMap = {};
-    for (const e of elements.slice(0, 12)) {
-      mastery[e.symbol] = { ...emptyMastery(0), box: 4, seen: 5 };
+    for (const e of elements.slice(0, RUSH_MIN - 1)) {
+      mastery[e.symbol] = { ...emptyMastery(0), box: 3, seen: 4 };
     }
-    const pool = rushPool(mastery);
-    expect(pool).toHaveLength(12);
-    expect(pool.every((e) => mastery[e.symbol]?.box === 4)).toBe(true);
+    expect(rushUnlocked(mastery)).toBe(false);
+    expect(rushProgress(mastery)).toBe(RUSH_MIN - 1);
+  });
+
+  it("unlocks once enough elements are known", () => {
+    const mastery: MasteryMap = {};
+    for (const e of elements.slice(0, RUSH_MIN)) {
+      mastery[e.symbol] = { ...emptyMastery(0), box: 2, seen: 3 };
+    }
+    expect(rushUnlocked(mastery)).toBe(true);
+    expect(rushPool(mastery)).toHaveLength(RUSH_MIN);
+  });
+
+  it("prefers strong elements once there are enough of them", () => {
+    const mastery: MasteryMap = {};
+    for (const e of elements.slice(0, 20)) {
+      mastery[e.symbol] = { ...emptyMastery(0), box: 2, seen: 3 };
+    }
+    for (const e of elements.slice(0, 12)) {
+      mastery[e.symbol] = { ...emptyMastery(0), box: 4, seen: 6 };
+    }
+    expect(rushPool(mastery)).toHaveLength(12);
+  });
+
+  it("deals no cards while locked, rather than spinning", () => {
+    expect(buildRushCards({}, 60)).toHaveLength(0);
   });
 });
 
@@ -460,7 +488,9 @@ describe("session", () => {
 
 describe("rush", () => {
   it("deals recognition cards only — never spelling against a clock", () => {
-    const cards = buildRushCards({}, 40, elements, mulberry32(8));
+    const mastery: MasteryMap = {};
+    for (const e of elements) mastery[e.symbol] = { ...emptyMastery(0), box: 4, seen: 6 };
+    const cards = buildRushCards(mastery, 40, elements, mulberry32(8));
     expect(cards).toHaveLength(40);
     expect(cards.every((c) => c.mode === "match" || c.mode === "reverse")).toBe(true);
   });

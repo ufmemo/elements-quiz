@@ -18,6 +18,7 @@ import { Today } from "../screens/Today";
 import { Session } from "../screens/Session";
 import { Results } from "../screens/Results";
 import { Progress } from "../screens/Progress";
+import { Help } from "../screens/Help";
 import { C, FONT } from "../ui/theme";
 
 /** Three destinations don't earn a tab bar. One stack, three levels. */
@@ -25,7 +26,8 @@ type Route =
   | { at: "today" }
   | { at: "session"; kind: SessionKind; cards: Card[] }
   | { at: "results"; summary: Summary }
-  | { at: "progress" };
+  | { at: "progress" }
+  | { at: "help" };
 
 export default function App() {
   const { save, update } = useSave();
@@ -106,6 +108,7 @@ export default function App() {
           }
           onDaily={() => open("daily", buildDailyCards(key))}
           onProgress={() => setRoute({ at: "progress" })}
+          onHelp={() => setRoute({ at: "help" })}
           onToggleSound={() =>
             update((s) => ({ ...s, settings: { ...s.settings, sound: !s.settings.sound } }))
           }
@@ -130,6 +133,8 @@ export default function App() {
       {route.at === "results" && <Results summary={route.summary} onDone={home} />}
 
       {route.at === "progress" && <Progress save={save} onBack={home} />}
+
+      {route.at === "help" && <Help onBack={home} />}
     </>
   );
 }

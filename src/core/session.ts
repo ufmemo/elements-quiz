@@ -80,6 +80,7 @@ export function buildRushCards(
   rand: Rand = Math.random,
 ): Card[] {
   const source = rushPool(mastery, pool);
+  if (source.length === 0) return []; // locked — never spin on an empty pool
   const out: Card[] = [];
   while (out.length < count) {
     for (const e of shuffle(source, rand)) {

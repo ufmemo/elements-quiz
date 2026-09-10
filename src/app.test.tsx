@@ -302,12 +302,48 @@ describe("rush", () => {
 
 describe("timer toggle", () => {
   it("persists and removes the clock from Rush", () => {
+    parkAllExcept("Ag", 5); // Rush is locked until enough elements are known
     render(<App />);
     tap(/Timer on/);
     expect(load().settings.timerless).toBe(true);
 
     tap(/^Rush/);
+    expect(document.querySelector("[data-mode]")).not.toBeNull();
     // With no clock there is a progress track instead of a countdown.
     expect(screen.queryByText(/^\d+s$/)).toBeNull();
+  });
+});
+
+describe("telling the modes apart", () => {
+  it("locks Rush for a new learner and says how to unlock it", () => {
+    // Day-one Rush used to fall back to all 67 elements, which made it deal
+    // the same unknown elements as Review — the reason the two felt identical.
+    render(<App />);
+    const rush = screen.getByRole("button", { name: /^Rush/ });
+    expect((rush as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Learn 8 more to unlock/)).toBeDefined();
+  });
+
+  it("unlocks Rush once enough elements are known", () => {
+    parkAllExcept("Ag", 5);
+    render(<App />);
+    const rush = screen.getByRole("button", { name: /^Rush/ });
+    expect((rush as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("marks the extras as not affecting the schedule", () => {
+    render(<App />);
+    expect(screen.getByText(/don’t change your schedule/)).toBeDefined();
+    expect(screen.getByText(/The only mode that moves your progress/)).toBeDefined();
+  });
+
+  it("explains all three modes on the help screen", () => {
+    render(<App />);
+    tap(/How this works/);
+    expect(screen.getByText("Review")).toBeDefined();
+    expect(screen.getByText("Rush")).toBeDefined();
+    expect(screen.getByText("Daily")).toBeDefined();
+    expect(screen.getByText(/Moves your progress/)).toBeDefined();
+    expect(screen.getAllByText(/Doesn't change your schedule/)).toHaveLength(2);
   });
 });

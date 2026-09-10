@@ -120,19 +120,31 @@ export function dueCount(mastery: MasteryMap, day: number, pool: readonly Elemen
   return selectDue({ mastery, day, pool }).length;
 }
 
+/** Rush needs this many known elements before it means anything. */
+export const RUSH_MIN = 8;
+
 /**
- * Rush needs elements the learner already knows, or it's a cruel surprise
- * rather than a fluency test. Falls back gracefully so it's playable in week one.
+ * Rush is a fluency test, so it draws only on elements the learner already
+ * knows. Below the threshold it returns nothing and the mode stays locked —
+ * falling back to the full set made day-one Rush deal the same unknown
+ * elements as Review, which is exactly why the two felt identical.
  */
 export function rushPool(mastery: MasteryMap, pool: readonly Element[] = elements): Element[] {
   const atLeast = (box: number) => pool.filter((e) => (mastery[e.symbol]?.box ?? -1) >= box);
   const strong = atLeast(4);
-  if (strong.length >= 8) return strong;
+  if (strong.length >= RUSH_MIN) return strong;
   const known = atLeast(2);
-  if (known.length >= 8) return known;
-  const seen = pool.filter((e) => (mastery[e.symbol]?.seen ?? 0) > 0);
-  if (seen.length >= 8) return seen;
-  return [...pool];
+  if (known.length >= RUSH_MIN) return known;
+  return [];
+}
+
+export function rushUnlocked(mastery: MasteryMap, pool: readonly Element[] = elements): boolean {
+  return rushPool(mastery, pool).length > 0;
+}
+
+/** How many elements are far enough along to count toward unlocking Rush. */
+export function rushProgress(mastery: MasteryMap, pool: readonly Element[] = elements): number {
+  return pool.filter((e) => (mastery[e.symbol]?.box ?? -1) >= 2).length;
 }
 
 /**

@@ -115,12 +115,43 @@ await check("opening a session shows a card and stays there", async () => {
   assert(!(await page.getByText(/elements due today/).count()), "bounced back to Today");
 });
 
-await check("Rush opens and runs a clock", async () => {
+await check("Rush is locked for a new learner and explains why", async () => {
   await fresh(page);
+  const rush = page.getByRole("button", { name: /^Rush/ });
+  assert(await rush.isDisabled(), "Rush should be locked on day one");
+  assert(await page.getByText(/Learn 8 more to unlock/).count(), "no unlock hint");
+});
+
+await check("Rush opens and runs a clock once unlocked", async () => {
+  await fresh(page);
+  await page.evaluate(() => {
+    const mastery = {};
+    for (const s of ["H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne"]) {
+      mastery[s] = { box: 4, due: 9999999, introducedOn: 0, seen: 6, correct: 6 };
+    }
+    localStorage.setItem(
+      "elements-quiz/save",
+      JSON.stringify({ mastery, stats: { lastPlayedDay: 0, dayStreak: 1, totalAnswers: 9 } }),
+    );
+  });
+  await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("button", { name: /^Rush/ }).click();
   await page.waitForTimeout(600);
   assert(await page.locator("[data-mode]").count(), "Rush did not open");
   assert(await page.getByText(/^\d+s$/).count(), "no countdown shown");
+});
+
+await check("the help screen explains all three modes", async () => {
+  await fresh(page);
+  await page.getByRole("button", { name: /How this works/ }).click();
+  await page.waitForTimeout(400);
+  for (const t of ["Review", "Rush", "Daily"]) {
+    assert(await page.getByRole("heading", { name: t }).count(), `no section for ${t}`);
+  }
+  assert(await page.getByText(/Moves your progress/).count(), "Review not marked as scheduling");
+  await page.getByRole("button", { name: /Today/ }).click();
+  await page.waitForTimeout(300);
+  assert(await page.getByText(/elements due today/).count(), "help did not return to Today");
 });
 
 await check("Daily opens", async () => {
@@ -201,7 +232,7 @@ await check("the back gesture exits the session instead of the app", async () =>
 
 await check("one back-press escapes however many sessions were opened", async () => {
   await fresh(page);
-  for (const name of [/Review 5 elements/, /^Rush/, /^Daily/]) {
+  for (const name of [/Review 5 elements/, /^Daily/, /Review 5 elements/]) {
     await page.getByRole("button", { name }).click();
     await page.waitForTimeout(350);
     await page.getByRole("button", { name: /Leave this session/ }).click();

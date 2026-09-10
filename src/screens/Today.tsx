@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import { elements } from "../core/elements";
-import { dueCount } from "../core/scheduler";
+import { RUSH_MIN, dueCount, rushProgress, rushUnlocked } from "../core/scheduler";
 import { C, BOX_COLOR, FONT, MONO } from "../ui/theme";
 import { Label, Primary, Screen, Spacer } from "../ui/primitives";
 import { tappable } from "../ui/tappable";
@@ -15,6 +15,7 @@ interface Props {
   onRush(): void;
   onDaily(): void;
   onProgress(): void;
+  onHelp(): void;
   onToggleSound(): void;
   onToggleTimer(): void;
 }
@@ -35,10 +36,13 @@ export function Today({
   onRush,
   onDaily,
   onProgress,
+  onHelp,
   onToggleSound,
   onToggleTimer,
 }: Props) {
   const due = dueCount(save.mastery, day);
+  const canRush = rushUnlocked(save.mastery);
+  const towardRush = rushProgress(save.mastery);
   const fluent = Object.values(save.mastery).filter((m) => m.box >= 5).length;
   const caughtUp = due === 0;
 
@@ -66,8 +70,13 @@ export function Today({
           >
             {save.settings.timerless ? "Timer off" : "Timer on"}
           </Toggle>
+          <Toggle type="button" onClick={onHelp} aria-label="How this works">
+            ?
+          </Toggle>
         </Toggles>
       </Top>
+
+      <Spacer />
 
       <Headline>
         {caughtUp ? (
@@ -95,21 +104,36 @@ export function Today({
       </StripButton>
 
       <Spacer />
+      <Spacer />
 
+      <Extras>Extras &mdash; these don&rsquo;t change your schedule</Extras>
       <Modes>
-        <Mode type="button" onClick={onRush}>
+        <Mode type="button" onClick={onRush} disabled={!canRush} $locked={!canRush}>
           <b>Rush</b>
-          {save.rushBest > 0 ? `Best ${save.rushBest}` : "60 seconds"}
+          <span>{canRush ? "Speed round · 60s" : "Locked"}</span>
+          <small>
+            {canRush
+              ? save.rushBest > 0
+                ? `Elements you know · best ${save.rushBest}`
+                : "Elements you already know"
+              : `Learn ${RUSH_MIN - towardRush} more to unlock`}
+          </small>
         </Mode>
         <Mode type="button" onClick={onDaily}>
           <b>Daily</b>
-          {dailyDone ? "Played today" : "Not played"}
+          <span>{dailyDone ? "Played today" : "Today’s six"}</span>
+          <small>Same six for everyone</small>
         </Mode>
       </Modes>
 
       <Primary type="button" onClick={caughtUp ? onFree : onReview}>
         {caughtUp ? "Free practice · 10 elements" : `Review ${due} element${due === 1 ? "" : "s"}`}
       </Primary>
+      <Caption>
+        {caughtUp
+          ? "Extra practice. Nothing here changes your schedule."
+          : "New elements and ones due again. The only mode that moves your progress."}
+      </Caption>
     </Screen>
   );
 }
@@ -193,6 +217,25 @@ const StripLabel = styled.span`
   color: ${C.muted};
 `;
 
+const Extras = styled.p`
+  font-family: ${MONO};
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: ${C.muted};
+  margin: 0 0 7px;
+`;
+
+const Caption = styled.p`
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: ${C.muted};
+  text-align: center;
+  margin: 9px 2px 0;
+  text-wrap: balance;
+`;
+
 const Modes = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -200,20 +243,32 @@ const Modes = styled.div`
   margin-bottom: 10px;
 `;
 
-const Mode = styled.button`
+const Mode = styled.button<{ $locked?: boolean }>`
   ${tappable};
   border: 2px solid ${C.faint};
   border-radius: 14px;
   background: ${C.surface};
-  padding: 13px 14px;
+  padding: 12px 13px;
   text-align: left;
   font-family: ${FONT};
-  font-size: 0.8rem;
-  color: ${C.muted};
+  opacity: ${({ $locked }) => ($locked ? 0.55 : 1)};
   b {
     display: block;
     font-size: 1.05rem;
-    color: ${C.ink};
-    margin-bottom: 2px;
+    color: ${({ $locked }) => ($locked ? C.muted : C.ink)};
+    margin-bottom: 1px;
+  }
+  span {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: ${C.muted};
+  }
+  small {
+    display: block;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: ${C.muted};
+    margin-top: 3px;
   }
 `;
