@@ -20,6 +20,9 @@ vi.mock("canvas-confetti", () => ({ default: { create: () => () => Promise.resol
 
 const HOLD_CORRECT = 620;
 const HOLD_WRONG = 2200;
+/** Drop: a tier-0 fall, plus the half-second the right answer is shown. */
+const FALL_MS = 6100;
+const REVEAL_MS = 560;
 
 beforeEach(() => {
   localStorage.clear();
@@ -113,6 +116,24 @@ function fallingSymbol(): string {
   const found = ALL.find((e) => e.name === name);
   if (!found) throw new Error(`nothing falling named "${name}"`);
   return found.symbol;
+}
+
+/** Lets the current Drop element land and waits out the answer reveal. */
+function dropLand() {
+  act(() => vi.advanceTimersByTime(FALL_MS));
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+}
+
+/** Taps a deliberately wrong chip in Drop and waits out the reveal. */
+function dropTapWrong(): string {
+  const target = fallingSymbol();
+  const chip = [...document.querySelectorAll("[data-opt]")].find(
+    (o) => (o as HTMLElement).dataset.opt !== target,
+  ) as HTMLElement;
+  const chose = chip.dataset.opt!;
+  fireEvent.click(chip);
+  act(() => vi.advanceTimersByTime(REVEAL_MS));
+  return chose;
 }
 
 function tap(name: RegExp) {
@@ -389,11 +410,7 @@ describe("Drop", () => {
   it("spends a life on a wrong tap", () => {
     render(<App />);
     tap(/^Drop/);
-    const wrong = [...document.querySelectorAll("[data-opt]")].find(
-      (o) => (o as HTMLElement).dataset.opt !== fallingSymbol(),
-    )!;
-    fireEvent.click(wrong);
-
+    dropTapWrong();
     expect(screen.getByLabelText("2 lives left")).toBeDefined();
     expect(screen.getByText("0/67")).toBeDefined();
   });
@@ -401,14 +418,14 @@ describe("Drop", () => {
   it("spends a life when the element lands", () => {
     render(<App />);
     tap(/^Drop/);
-    act(() => vi.advanceTimersByTime(6100)); // tier 0 fall time
+    dropLand();
     expect(screen.getByLabelText("2 lives left")).toBeDefined();
   });
 
   it("ends the run after three landings and never touches the schedule", () => {
     render(<App />);
     tap(/^Drop/);
-    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    for (let i = 0; i < 3; i++) dropLand();
 
     expect(screen.getByRole("button", { name: /Play again/ })).toBeDefined();
     expect(load().mastery).toEqual({}); // Drop must not smuggle in mastery records
@@ -419,7 +436,7 @@ describe("end of a scored run", () => {
   /** Loses all three lives in Drop by letting every element land. */
   function loseAtDrop() {
     tap(/^Drop/);
-    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    for (let i = 0; i < 3; i++) dropLand();
   }
 
   it("says the run ended, not just the score", () => {
@@ -494,7 +511,7 @@ describe("end of a scored run", () => {
 describe("tone of the end screen", () => {
   function loseAtDrop() {
     tap(/^Drop/);
-    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    for (let i = 0; i < 3; i++) dropLand();
   }
 
   it("never claims a personal best on a first run", () => {
@@ -520,7 +537,7 @@ describe("tone of the end screen", () => {
         )!,
       );
     }
-    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    for (let i = 0; i < 3; i++) dropLand();
     expect(screen.getByText(/New personal best/)).toBeDefined();
   });
 
@@ -541,14 +558,7 @@ describe("what a miss tells you", () => {
     tap(/^Drop/);
 
     const wrongTaps: string[] = [];
-    for (let i = 0; i < 3; i++) {
-      const target = fallingSymbol();
-      const chip = [...document.querySelectorAll("[data-opt]")].find(
-        (o) => (o as HTMLElement).dataset.opt !== target,
-      ) as HTMLElement;
-      wrongTaps.push(chip.dataset.opt!);
-      fireEvent.click(chip);
-    }
+    for (let i = 0; i < 3; i++) wrongTaps.push(dropTapWrong());
 
     expect(screen.getAllByText(/you tapped/)).toHaveLength(3);
     for (const tapped of wrongTaps) {
@@ -560,7 +570,7 @@ describe("what a miss tells you", () => {
   it("says no answer was given when the element simply landed", () => {
     render(<App />);
     tap(/^Drop/);
-    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    for (let i = 0; i < 3; i++) dropLand();
     expect(screen.getAllByText(/no answer — it reached the bottom/)).toHaveLength(3);
     expect(screen.queryByText(/you tapped/)).toBeNull();
   });
@@ -569,13 +579,8 @@ describe("what a miss tells you", () => {
     render(<App />);
     tap(/^Drop/);
     // One wrong tap, then let two land.
-    const target = fallingSymbol();
-    fireEvent.click(
-      [...document.querySelectorAll("[data-opt]")].find(
-        (o) => (o as HTMLElement).dataset.opt !== target,
-      )!,
-    );
-    for (let i = 0; i < 2; i++) act(() => vi.advanceTimersByTime(6100));
+    dropTapWrong();
+    for (let i = 0; i < 2; i++) dropLand();
 
     expect(screen.getAllByText(/you tapped/)).toHaveLength(1);
     expect(screen.getAllByText(/reached the bottom/)).toHaveLength(2);
@@ -595,5 +600,97 @@ describe("what a miss tells you", () => {
     expect(screen.getByText(/you tapped/)).toBeDefined();
     expect(screen.getAllByText(chosen).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Na").length).toBeGreaterThan(0);
+  });
+});
+
+describe("the answer reveal after a miss", () => {
+  function chipState(symbol: string): string | undefined {
+    const chip = document.querySelector(`[data-opt="${symbol}"]`) as HTMLElement | null;
+    return chip ? getComputedStyle(chip).borderColor : undefined;
+  }
+
+  it("holds on the same element instead of moving straight on", () => {
+    render(<App />);
+    tap(/^Drop/);
+    const target = fallingSymbol();
+
+    fireEvent.click(
+      [...document.querySelectorAll("[data-opt]")].find(
+        (o) => (o as HTMLElement).dataset.opt !== target,
+      )!,
+    );
+
+    // Still on the same element mid-reveal.
+    act(() => vi.advanceTimersByTime(300));
+    expect(fallingSymbol()).toBe(target);
+
+    act(() => vi.advanceTimersByTime(300));
+    expect(fallingSymbol()).not.toBe(target);
+  });
+
+  it("marks the right chip green and the tapped one red", () => {
+    render(<App />);
+    tap(/^Drop/);
+    const target = fallingSymbol();
+    const wrong = [...document.querySelectorAll("[data-opt]")].find(
+      (o) => (o as HTMLElement).dataset.opt !== target,
+    ) as HTMLElement;
+    const chose = wrong.dataset.opt!;
+    fireEvent.click(wrong);
+
+    act(() => vi.advanceTimersByTime(200));
+    expect(chipState(target)).toBe("rgb(15, 122, 82)"); // C.correct
+    expect(chipState(chose)).toBe("rgb(189, 51, 43)"); // C.wrong
+  });
+
+  it("stops accepting taps while the answer is shown", () => {
+    render(<App />);
+    tap(/^Drop/);
+    fireEvent.click(
+      [...document.querySelectorAll("[data-opt]")].find(
+        (o) => (o as HTMLElement).dataset.opt !== fallingSymbol(),
+      )!,
+    );
+    act(() => vi.advanceTimersByTime(150));
+
+    for (const chip of document.querySelectorAll("[data-opt]")) {
+      expect((chip as HTMLButtonElement).disabled).toBe(true);
+    }
+    // A second tap must not cost another life.
+    fireEvent.click(document.querySelector("[data-opt]")!);
+    act(() => vi.advanceTimersByTime(600));
+    expect(screen.getByLabelText("2 lives left")).toBeDefined();
+  });
+
+  it("reveals the answer when the element lands too", () => {
+    render(<App />);
+    tap(/^Drop/);
+    const target = fallingSymbol();
+    act(() => vi.advanceTimersByTime(FALL_MS));
+
+    expect(fallingSymbol()).toBe(target); // frozen on the missed element
+    expect(chipState(target)).toBe("rgb(15, 122, 82)");
+
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(fallingSymbol()).not.toBe(target);
+  });
+
+  it("does not hold on a correct tap", () => {
+    render(<App />);
+    tap(/^Drop/);
+    const target = fallingSymbol();
+    fireEvent.click(document.querySelector(`[data-opt="${target}"]`)!);
+    // Advances immediately — correct answers stay snappy.
+    expect(fallingSymbol()).not.toBe(target);
+    expect(screen.getByText("1/67")).toBeDefined();
+  });
+
+  it("does not let the element land during its own reveal", () => {
+    // The landing clock must be suspended, or the miss would cost two lives.
+    render(<App />);
+    tap(/^Drop/);
+    act(() => vi.advanceTimersByTime(FALL_MS));
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
+    expect(screen.getByLabelText("2 lives left")).toBeDefined();
   });
 });

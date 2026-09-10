@@ -18,6 +18,9 @@ import type { Save } from "../store/save";
 /** Name height plus a little clearance above the ground line. */
 const NAME_CLEARANCE = 64;
 
+/** How long the right answer is shown after a miss, before the run continues. */
+const REVEAL_MS = 500;
+
 interface Props {
   update(fn: (s: Save) => Save): void;
   onExit(): void;
@@ -33,6 +36,8 @@ interface Props {
 export function Fall({ update, onExit, onFinish }: Props) {
   const [state, setState] = useState<FallState>(() => startFall(Date.now(), elements));
   const [flash, setFlash] = useState<"right" | "wrong" | null>(null);
+  /** Set while a miss is being shown: which chip was tapped, if any. */
+  const [reveal, setReveal] = useState<{ chose: string | null } | null>(null);
   const reduced = useRef(prefersReducedMotion()).current;
 
   /**
@@ -55,7 +60,11 @@ export function Fall({ update, onExit, onFinish }: Props) {
   }, []);
 
   const shownAt = useRef(Date.now());
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The landing clock for the current element. */
+  const fallTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The post-miss hold. Kept separate so the two can't clobber each other. */
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holding = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
   const done = useRef(false);
@@ -86,19 +95,29 @@ export function Fall({ update, onExit, onFinish }: Props) {
     [onFinish],
   );
 
+  const commit = useCallback(
+    (s: FallState, chosen: string | null, ms: number) => {
+      const next = answerFall(s, chosen, ms);
+      setState(next);
+      if (next.outcome !== "playing") finish(next);
+    },
+    [finish],
+  );
+
   const resolve = useCallback(
     (chosen: string | null) => {
       const s = stateRef.current;
-      if (s.outcome !== "playing" || !s.card) return;
+      if (s.outcome !== "playing" || !s.card || holding.current) return;
 
       const ms = Date.now() - shownAt.current;
       const right = chosen === s.card.element.symbol;
       const symbol = s.card.element.symbol;
 
+      if (fallTimer.current) clearTimeout(fallTimer.current);
+
       if (right) cue.correct(s.streak);
       else cue.wrong();
       setFlash(right ? "right" : "wrong");
-      setTimeout(() => setFlash(null), 220);
 
       // Times only — Drop never moves an element's due date.
       update((save) => ({
@@ -107,22 +126,42 @@ export function Fall({ update, onExit, onFinish }: Props) {
         stats: { ...save.stats, totalAnswers: save.stats.totalAnswers + 1 },
       }));
 
-      const next = answerFall(s, chosen, ms);
-      setState(next);
-      if (next.outcome !== "playing") finish(next);
+      if (right) {
+        setTimeout(() => setFlash(null), 220);
+        commit(s, chosen, ms);
+        return;
+      }
+
+      // Hold on a miss so the right answer is visible before moving on.
+      holding.current = true;
+      setReveal({ chose: chosen });
+      holdTimer.current = setTimeout(() => {
+        holding.current = false;
+        setReveal(null);
+        setFlash(null);
+        commit(s, chosen, ms);
+      }, REVEAL_MS);
     },
-    [update, finish],
+    [update, commit],
   );
 
-  // One timeout per card: when it fires, the element has landed.
+  // One timeout per card: when it fires, the element has landed. Suspended
+  // while a miss is on screen, so the reveal isn't racing the next element.
   useEffect(() => {
-    if (state.outcome !== "playing" || !state.card) return;
+    if (state.outcome !== "playing" || !state.card || reveal) return;
     shownAt.current = Date.now();
-    timer.current = setTimeout(() => resolve(null), state.card.durationMs);
+    fallTimer.current = setTimeout(() => resolve(null), state.card.durationMs);
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      if (fallTimer.current) clearTimeout(fallTimer.current);
     };
-  }, [state.card, state.outcome, resolve]);
+  }, [state.card, state.outcome, reveal, resolve]);
+
+  useEffect(
+    () => () => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+    },
+    [],
+  );
 
   const card = state.card;
   if (!card) return null;
@@ -155,6 +194,7 @@ export function Fall({ update, onExit, onFinish }: Props) {
           <Name
             key={card.element.symbol + state.answers.length}
             data-falling=""
+            $frozen={reveal !== null}
             style={{ animationDuration: `${card.durationMs}ms` }}
           >
             {card.element.name}
@@ -165,7 +205,22 @@ export function Fall({ update, onExit, onFinish }: Props) {
 
       <Options $n={card.options.length}>
         {card.options.map((o) => (
-          <Chip key={o} type="button" data-opt={o} onClick={() => resolve(o)}>
+          <Chip
+            key={o}
+            type="button"
+            data-opt={o}
+            disabled={reveal !== null}
+            onClick={() => resolve(o)}
+            $state={
+              !reveal
+                ? "idle"
+                : o === card.element.symbol
+                  ? "right"
+                  : o === reveal.chose
+                    ? "wrong"
+                    : "dim"
+            }
+          >
             {o}
           </Chip>
         ))}
@@ -179,6 +234,13 @@ export function Fall({ update, onExit, onFinish }: Props) {
 const drop = keyframes`
   from { transform: translateY(0); }
   to   { transform: translateY(var(--drop-distance)); }
+`;
+
+/** The right answer gives a small kick so the eye lands on it. */
+const pop = keyframes`
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.1); }
+  100% { transform: scale(1); }
 `;
 
 const deplete = keyframes`
@@ -252,7 +314,7 @@ const Field = styled.div`
   /* --drop-distance is set inline, in px, from the measured field height. */
 `;
 
-const Name = styled.div`
+const Name = styled.div<{ $frozen?: boolean }>`
   position: absolute;
   top: 0;
   left: 0;
@@ -266,6 +328,7 @@ const Name = styled.div`
   animation-name: ${drop};
   animation-timing-function: linear;
   animation-fill-mode: forwards;
+  animation-play-state: ${({ $frozen }) => ($frozen ? "paused" : "running")};
   will-change: transform;
 `;
 
@@ -323,20 +386,36 @@ const Options = styled.div<{ $n: number }>`
         `}
 `;
 
-const Chip = styled.button`
+type ChipState = "idle" | "right" | "wrong" | "dim";
+
+const Chip = styled.button<{ $state: ChipState }>`
   ${tappable};
-  border: 3px solid ${C.faint};
   border-radius: 13px;
-  background: ${C.surface};
-  color: ${C.ink};
   font-family: ${FONT};
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   padding: 14px 4px;
-  transition: transform 110ms cubic-bezier(0.2, 0.8, 0.2, 1), border-color 140ms ease;
-  &:active {
+  transition: transform 110ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 140ms ease, background 140ms ease, opacity 140ms ease;
+  border: 3px solid
+    ${({ $state }) =>
+      $state === "right" ? C.correct : $state === "wrong" ? C.wrong : C.faint};
+  background: ${({ $state }) =>
+    $state === "right" ? C.correctBg : $state === "wrong" ? C.wrongBg : C.surface};
+  color: ${({ $state }) =>
+    $state === "right" ? C.correct : $state === "wrong" ? C.wrong : C.ink};
+  opacity: ${({ $state }) => ($state === "dim" ? 0.35 : 1)};
+  &:disabled {
+    opacity: ${({ $state }) => ($state === "dim" ? 0.35 : 1)};
+  }
+  &:active:not(:disabled) {
     transform: scale(0.94);
     border-color: ${C.ink};
   }
+  ${({ $state }) =>
+    $state === "right" &&
+    css`
+      animation: ${pop} 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    `}
 `;
