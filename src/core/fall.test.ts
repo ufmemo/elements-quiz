@@ -123,7 +123,22 @@ describe("a run", () => {
     s = answerFall(s, null, 6000, rand());
     expect(s.lives).toBe(FALL_LIVES - 1);
     expect(s.queue).toContain(first); // comes back to fall again
-    expect(s.misses.map((m) => m.symbol)).toEqual([first]);
+    expect(s.misses.map((m) => m.element.symbol)).toEqual([first]);
+  });
+
+  it("remembers what was tapped, so the results screen can show it", () => {
+    let s = startFall(0, elements, rand());
+    const target = s.card!.element.symbol;
+    const wrong = s.card!.options.find((o) => o !== target)!;
+    s = answerFall(s, wrong, 800, rand());
+    expect(s.misses[0].element.symbol).toBe(target);
+    expect(s.misses[0].chose).toBe(wrong);
+  });
+
+  it("records no choice when the element simply landed", () => {
+    let s = startFall(0, elements, rand());
+    s = answerFall(s, null, 6000, rand());
+    expect(s.misses[0].chose).toBeUndefined();
   });
 
   it("treats a wrong tap exactly like a landing", () => {

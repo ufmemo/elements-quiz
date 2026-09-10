@@ -441,7 +441,7 @@ describe("end of a scored run", () => {
     render(<App />);
     loseAtDrop();
     expect(screen.getByText(/These 3 cost you a life/)).toBeDefined();
-    expect(screen.getAllByText(/it landed/)).toHaveLength(3);
+    expect(screen.getAllByText(/it reached the bottom/)).toHaveLength(3);
   });
 
   it("offers an immediate retry and a quiet way back", () => {
@@ -530,5 +530,70 @@ describe("tone of the end screen", () => {
     const heading = screen.getByRole("heading", { name: "Out of lives" });
     // Green is reserved for a win; a loss must not read as a success.
     expect(getComputedStyle(heading).color).not.toBe("rgb(15, 122, 82)");
+  });
+});
+
+describe("what a miss tells you", () => {
+  it("shows the answer next to what was actually tapped", () => {
+    // Drop used to store misses as bare elements, throwing away the tapped
+    // symbol, so every miss rendered as "it landed" even after a wrong tap.
+    render(<App />);
+    tap(/^Drop/);
+
+    const wrongTaps: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const target = fallingSymbol();
+      const chip = [...document.querySelectorAll("[data-opt]")].find(
+        (o) => (o as HTMLElement).dataset.opt !== target,
+      ) as HTMLElement;
+      wrongTaps.push(chip.dataset.opt!);
+      fireEvent.click(chip);
+    }
+
+    expect(screen.getAllByText(/you tapped/)).toHaveLength(3);
+    for (const tapped of wrongTaps) {
+      expect(screen.getAllByText(tapped).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByText(/reached the bottom/)).toBeNull();
+  });
+
+  it("says no answer was given when the element simply landed", () => {
+    render(<App />);
+    tap(/^Drop/);
+    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    expect(screen.getAllByText(/no answer — it reached the bottom/)).toHaveLength(3);
+    expect(screen.queryByText(/you tapped/)).toBeNull();
+  });
+
+  it("distinguishes the two within one run", () => {
+    render(<App />);
+    tap(/^Drop/);
+    // One wrong tap, then let two land.
+    const target = fallingSymbol();
+    fireEvent.click(
+      [...document.querySelectorAll("[data-opt]")].find(
+        (o) => (o as HTMLElement).dataset.opt !== target,
+      )!,
+    );
+    for (let i = 0; i < 2; i++) act(() => vi.advanceTimersByTime(6100));
+
+    expect(screen.getAllByText(/you tapped/)).toHaveLength(1);
+    expect(screen.getAllByText(/reached the bottom/)).toHaveLength(2);
+  });
+
+  it("shows the same contrast for a Review miss", () => {
+    parkAllExcept("Na", 0);
+    render(<App />);
+    tap(/Review/);
+    const wrong = [...document.querySelectorAll("[data-opt]")].find(
+      (o) => (o as HTMLElement).dataset.opt !== "Na",
+    ) as HTMLElement;
+    const chosen = wrong.dataset.opt!;
+    fireEvent.click(wrong);
+    act(() => vi.advanceTimersByTime(2300));
+
+    expect(screen.getByText(/you tapped/)).toBeDefined();
+    expect(screen.getAllByText(chosen).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Na").length).toBeGreaterThan(0);
   });
 });

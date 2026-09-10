@@ -277,6 +277,10 @@ await check("Drop ends after three landings and keeps the schedule clean", async
   assert(await page.getByRole("heading", { name: "Out of lives" }).count(), "run end not announced");
   assert(await page.getByText("of 67").count(), "score has no denominator");
   assert(await page.getByText(/These 3 cost you a life/).count(), "misses not labelled");
+  assert(
+    (await page.getByText(/no answer — it reached the bottom/).count()) === 3,
+    "landings not described",
+  );
   assert(await page.getByRole("button", { name: /Play again/ }).count(), "no retry");
   // A loss must never be celebrated, and a first run has no best to beat.
   assert(!(await page.getByText(/New personal best/).count()), "claimed a best on run one");
@@ -295,7 +299,34 @@ await check("Drop ends after three landings and keeps the schedule clean", async
   assert(mastery === 0, `Drop wrote ${mastery} mastery records; it must write none`);
 });
 
+await check("a wrong tap shows the answer next to what was tapped", async () => {
+  await fresh(page);
+  await page.getByRole("button", { name: /^Drop/ }).click();
+  await page.waitForTimeout(400);
+
+  const tapped = [];
+  for (let i = 0; i < 3; i++) {
+    const name = (await page.locator("[data-falling]").textContent()).trim();
+    const target = NAME_TO_SYMBOL.get(name);
+    const chip = page.locator(`[data-opt]:not([data-opt="${target}"])`).first();
+    tapped.push(await chip.getAttribute("data-opt"));
+    await chip.click();
+    await page.waitForTimeout(250);
+  }
+
+  assert((await page.getByText(/you tapped/).count()) === 3, "tapped symbol not shown");
+  assert(!(await page.getByText(/reached the bottom/).count()), "wrong taps described as landings");
+  for (const t of tapped) {
+    assert(await page.getByText(t, { exact: true }).count(), `"${t}" missing from the list`);
+  }
+  await page.getByRole("button", { name: /Back to Today/ }).click();
+  await page.waitForTimeout(300);
+});
+
 await check("Play again starts a fresh Drop run", async () => {
+  await page.getByRole("button", { name: /^Drop/ }).click();
+  await page.waitForTimeout(300);
+  await page.waitForTimeout(6200 * 3);
   await page.getByRole("button", { name: /Play again/ }).click();
   await page.waitForTimeout(500);
   assert(await page.getByLabel("3 lives left").count(), "lives were not reset");

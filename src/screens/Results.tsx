@@ -120,9 +120,19 @@ export function Results({ summary, best, isRecord, onAgain, onDone }: Props) {
           <Misses>
             {summary.misses.map((m, i) => (
               <Miss key={`${m.element.symbol}-${i}`}>
-                <b>{m.element.symbol}</b> is {m.element.name}
-                {m.chose && <Chose> &mdash; you tapped {m.chose}</Chose>}
-                {!m.chose && isFall && <Chose> &mdash; it landed</Chose>}
+                <Answer>
+                  <Right>{m.element.symbol}</Right>
+                  <AnswerName>is {m.element.name}</AnswerName>
+                </Answer>
+                <Chose>
+                  {m.chose ? (
+                    <>
+                      you tapped <Wrong>{m.chose}</Wrong>
+                    </>
+                  ) : (
+                    "no answer — it reached the bottom"
+                  )}
+                </Chose>
                 {m.element.mnemonic && <Mnemonic>{m.element.mnemonic}</Mnemonic>}
               </Miss>
             ))}
@@ -281,14 +291,35 @@ const Miss = styled.li`
   border-radius: 10px;
   background: ${C.surface};
   padding: 10px 13px;
-  font-size: 0.93rem;
-  b {
-    font-size: 1.05rem;
-  }
 `;
 
-const Chose = styled.span`
+const Answer = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+`;
+
+/** The symbol that was right. */
+const Right = styled.b`
+  font-size: 1.15rem;
+  color: ${C.correct};
+  letter-spacing: -0.01em;
+`;
+
+const AnswerName = styled.span`
+  font-size: 0.95rem;
+`;
+
+const Chose = styled.div`
+  font-size: 0.85rem;
   color: ${C.muted};
+  margin-top: 3px;
+`;
+
+/** The symbol that was tapped instead. */
+const Wrong = styled.b`
+  font-size: 0.95rem;
+  color: ${C.wrong};
 `;
 
 const Mnemonic = styled.em`

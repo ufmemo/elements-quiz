@@ -73,7 +73,7 @@ export function Fall({ update, onExit, onFinish }: Props) {
           total: s.answers.length,
           correct: s.correct,
           wrong: s.answers.length - s.correct,
-          misses: s.misses.map((element) => ({ element })),
+          misses: s.misses,
           promoted: [],
           fluent: [],
           bestStreak: bestStreak(s.answers),

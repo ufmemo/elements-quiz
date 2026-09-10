@@ -1,6 +1,6 @@
 import { elements, type Element } from "./elements";
 import { shuffle, type Rand } from "./rng";
-import type { Answer } from "./session";
+import type { Answer, Miss } from "./session";
 
 /**
  * "Drop" — the element name falls, you tap its symbol before it lands.
@@ -121,7 +121,7 @@ export interface FallState {
   correct: number;
   streak: number;
   answers: Answer[];
-  misses: Element[];
+  misses: Miss[];
   startedAt: number;
   outcome: "playing" | "won" | "lost";
 }
@@ -199,7 +199,7 @@ export function answerFall(
   }
 
   const lives = state.lives - 1;
-  const misses = [...state.misses, element];
+  const misses: Miss[] = [...state.misses, { element, chose: chosen ?? undefined }];
 
   // Back into the queue to fall again, a few places later.
   const rest = state.queue.slice(1);
