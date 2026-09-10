@@ -410,7 +410,125 @@ describe("Drop", () => {
     tap(/^Drop/);
     for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
 
-    expect(screen.getByRole("button", { name: /^Done$/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Play again/ })).toBeDefined();
     expect(load().mastery).toEqual({}); // Drop must not smuggle in mastery records
+  });
+});
+
+describe("end of a scored run", () => {
+  /** Loses all three lives in Drop by letting every element land. */
+  function loseAtDrop() {
+    tap(/^Drop/);
+    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+  }
+
+  it("says the run ended, not just the score", () => {
+    // A bare green number read as "you scored 4!" when the run had in fact
+    // just ended in failure.
+    render(<App />);
+    loseAtDrop();
+    expect(screen.getByRole("heading", { name: "Out of lives" })).toBeDefined();
+  });
+
+  it("gives the score a denominator", () => {
+    render(<App />);
+    loseAtDrop();
+    expect(screen.getByText(`of ${ALL.length}`)).toBeDefined();
+    expect(screen.getByText("elements caught")).toBeDefined();
+  });
+
+  it("labels the misses as what ended the run", () => {
+    render(<App />);
+    loseAtDrop();
+    expect(screen.getByText(/These 3 cost you a life/)).toBeDefined();
+    expect(screen.getAllByText(/it landed/)).toHaveLength(3);
+  });
+
+  it("offers an immediate retry and a quiet way back", () => {
+    render(<App />);
+    loseAtDrop();
+    expect(screen.getByRole("button", { name: /Play again/ })).toBeDefined();
+    expect(screen.getByRole("button", { name: /Back to Today/ })).toBeDefined();
+  });
+
+  it("restarts a fresh run from Play again", () => {
+    render(<App />);
+    loseAtDrop();
+    tap(/Play again/);
+    expect(screen.getByLabelText("3 lives left")).toBeDefined();
+    expect(screen.getByText("0/67")).toBeDefined();
+  });
+
+  it("returns to Today from the quiet button", () => {
+    render(<App />);
+    loseAtDrop();
+    tap(/Back to Today/);
+    expect(screen.getByText(/elements due today/)).toBeDefined();
+  });
+
+  it("shows run stats", () => {
+    render(<App />);
+    loseAtDrop();
+    expect(screen.getByText("best streak")).toBeDefined();
+    expect(screen.getByText("speed level")).toBeDefined();
+    expect(screen.getByText("your best")).toBeDefined();
+  });
+
+  it("does not claim a personal best on a scoreless run", () => {
+    render(<App />);
+    loseAtDrop();
+    expect(screen.queryByText(/New personal best/)).toBeNull();
+  });
+
+  it("keeps Review's results ending in a single Done", () => {
+    // Review shouldn't invite a replay — once you've reviewed what's due,
+    // there is nothing left to review.
+    render(<App />);
+    tap(/Review 5 elements/);
+    for (let i = 0; i < 5; i++) answer(true);
+    expect(screen.getByRole("button", { name: /^Done$/ })).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Play again/ })).toBeNull();
+  });
+});
+
+describe("tone of the end screen", () => {
+  function loseAtDrop() {
+    tap(/^Drop/);
+    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+  }
+
+  it("never claims a personal best on a first run", () => {
+    // Every first run beats a stored best of zero, which made "new personal
+    // best" appear on a run of four.
+    render(<App />);
+    loseAtDrop();
+    expect(screen.queryByText(/New personal best/)).toBeNull();
+  });
+
+  it("claims one only after there is something to beat", () => {
+    localStorage.setItem(
+      "elements-quiz/save",
+      JSON.stringify({ fallBest: 2, stats: { lastPlayedDay: 0, dayStreak: 1 } }),
+    );
+    render(<App />);
+    tap(/^Drop/);
+    // Catch three, then lose the run.
+    for (let i = 0; i < 3; i++) {
+      fireEvent.click(
+        [...document.querySelectorAll("[data-opt]")].find(
+          (o) => (o as HTMLElement).dataset.opt === fallingSymbol(),
+        )!,
+      );
+    }
+    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+    expect(screen.getByText(/New personal best/)).toBeDefined();
+  });
+
+  it("shows the score in the neutral colour when the run was lost", () => {
+    render(<App />);
+    loseAtDrop();
+    const heading = screen.getByRole("heading", { name: "Out of lives" });
+    // Green is reserved for a win; a loss must not read as a success.
+    expect(getComputedStyle(heading).color).not.toBe("rgb(15, 122, 82)");
   });
 });

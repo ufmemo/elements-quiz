@@ -274,11 +274,34 @@ await check("Drop ends after three landings and keeps the schedule clean", async
   // Three full falls at tier 0 (6s each), untouched.
   await page.waitForTimeout(6200 * 3);
 
-  assert(await page.getByRole("button", { name: /^Done$/ }).count(), "run did not end");
+  assert(await page.getByRole("heading", { name: "Out of lives" }).count(), "run end not announced");
+  assert(await page.getByText("of 67").count(), "score has no denominator");
+  assert(await page.getByText(/These 3 cost you a life/).count(), "misses not labelled");
+  assert(await page.getByRole("button", { name: /Play again/ }).count(), "no retry");
+  // A loss must never be celebrated, and a first run has no best to beat.
+  assert(!(await page.getByText(/New personal best/).count()), "claimed a best on run one");
+  const confetti = await page.evaluate(() => {
+    const c = document.querySelector("canvas");
+    if (!c) return "none";
+    const ctx = c.getContext("2d");
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return "drawn";
+    return "empty";
+  });
+  assert(confetti !== "drawn", "confetti fired over a losing run");
   const mastery = await page.evaluate(
     () => Object.keys(JSON.parse(localStorage.getItem("elements-quiz/save")).mastery).length,
   );
   assert(mastery === 0, `Drop wrote ${mastery} mastery records; it must write none`);
+});
+
+await check("Play again starts a fresh Drop run", async () => {
+  await page.getByRole("button", { name: /Play again/ }).click();
+  await page.waitForTimeout(500);
+  assert(await page.getByLabel("3 lives left").count(), "lives were not reset");
+  assert(await page.getByText("0/67").count(), "score was not reset");
+  await page.getByRole("button", { name: /Leave this session/ }).click();
+  await page.waitForTimeout(300);
 });
 
 await check("no console errors anywhere in the run", () => {

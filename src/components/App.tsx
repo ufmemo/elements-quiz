@@ -26,7 +26,7 @@ import { C, FONT } from "../ui/theme";
 type Route =
   | { at: "today" }
   | { at: "session"; kind: SessionKind; cards: Card[] }
-  | { at: "results"; summary: Summary }
+  | { at: "results"; summary: Summary; best?: number; isRecord?: boolean; again?: () => void }
   | { at: "progress" }
   | { at: "fall" }
   | { at: "help" };
@@ -59,14 +59,29 @@ export default function App() {
 
   const onFallFinish = useCallback(
     (summary: Summary, correct: number) => {
+      // Capture the previous best before overwriting it, so the screen can say
+      // "new personal best" rather than comparing a number against itself.
+      const previous = save.fallBest;
       update((s) => (correct > s.fallBest ? { ...s, fallBest: correct } : s));
-      setRoute({ at: "results", summary });
+      setRoute({
+        at: "results",
+        summary,
+        best: previous,
+        isRecord: previous > 0 && correct > previous,
+        again: openFall,
+      });
     },
-    [update],
+    [update, save.fallBest, openFall],
+  );
+
+  const startRush = useCallback(
+    () => open("rush", buildRushCards(save.mastery, save.settings.timerless ? 20 : 60)),
+    [open, save.mastery, save.settings.timerless],
   );
 
   const onFinish = useCallback(
     (summary: Summary) => {
+      const previousRush = save.rushBest;
       update((s) => {
         const next = { ...s };
         if (summary.kind === "rush" && summary.correct > s.rushBest) {
@@ -80,9 +95,20 @@ export default function App() {
         }
         return next;
       });
+
+      if (summary.kind === "rush") {
+        setRoute({
+          at: "results",
+          summary,
+          best: previousRush,
+          isRecord: previousRush > 0 && summary.correct > previousRush,
+          again: startRush,
+        });
+        return;
+      }
       setRoute({ at: "results", summary });
     },
-    [update, key],
+    [update, key, save.rushBest, startRush],
   );
 
   const home = useCallback(() => setRoute({ at: "today" }), []);
@@ -119,9 +145,7 @@ export default function App() {
           dailyDone={save.daily[key] !== undefined}
           onReview={() => open("review", buildReviewCards({ mastery: save.mastery, day }))}
           onFree={() => open("free", buildFreeCards(save.mastery))}
-          onRush={() =>
-            open("rush", buildRushCards(save.mastery, save.settings.timerless ? 20 : 60))
-          }
+          onRush={startRush}
           onDaily={() => open("daily", buildDailyCards(key))}
           onFall={() => openFall()}
           onProgress={() => setRoute({ at: "progress" })}
@@ -147,7 +171,15 @@ export default function App() {
         />
       )}
 
-      {route.at === "results" && <Results summary={route.summary} onDone={home} />}
+      {route.at === "results" && (
+        <Results
+          summary={route.summary}
+          best={route.best}
+          isRecord={route.isRecord}
+          onAgain={route.again}
+          onDone={home}
+        />
+      )}
 
       {route.at === "progress" && <Progress save={save} onBack={home} />}
 
