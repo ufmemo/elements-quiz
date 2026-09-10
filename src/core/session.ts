@@ -5,7 +5,7 @@ import { modeForBox, type ModeId } from "./modes";
 import { mulberry32, sample, seedFromString, shuffle, type Rand } from "./rng";
 import { rushPool, selectDue, type QueueOptions } from "./scheduler";
 
-export type SessionKind = "review" | "free" | "rush" | "daily";
+export type SessionKind = "review" | "free" | "rush" | "daily" | "fall";
 
 export interface Card {
   element: Element;

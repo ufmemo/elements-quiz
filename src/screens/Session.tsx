@@ -26,6 +26,7 @@ const SCHEDULES: Record<SessionKind, boolean> = {
   free: false,
   rush: false,
   daily: false,
+  fall: false,
 };
 
 const HOLD_CORRECT = 620;

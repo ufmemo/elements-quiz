@@ -107,6 +107,14 @@ function parkAllExcept(symbol: string, box: number) {
   );
 }
 
+/** The symbol of the element currently falling in Drop. */
+function fallingSymbol(): string {
+  const name = document.querySelector("[data-falling]")!.textContent!.trim();
+  const found = ALL.find((e) => e.name === name);
+  if (!found) throw new Error(`nothing falling named "${name}"`);
+  return found.symbol;
+}
+
 function tap(name: RegExp) {
   fireEvent.click(screen.getByRole("button", { name }));
 }
@@ -337,13 +345,72 @@ describe("telling the modes apart", () => {
     expect(screen.getByText(/The only mode that moves your progress/)).toBeDefined();
   });
 
-  it("explains all three modes on the help screen", () => {
+  it("explains every mode on the help screen", () => {
     render(<App />);
     tap(/How this works/);
-    expect(screen.getByText("Review")).toBeDefined();
-    expect(screen.getByText("Rush")).toBeDefined();
-    expect(screen.getByText("Daily")).toBeDefined();
-    expect(screen.getByText(/Moves your progress/)).toBeDefined();
-    expect(screen.getAllByText(/Doesn't change your schedule/)).toHaveLength(2);
+    for (const name of ["Review", "Rush", "Drop", "Daily"]) {
+      expect(screen.getByRole("heading", { name }), name).toBeDefined();
+    }
+    // Review is the only one that schedules; the other three say so.
+    expect(screen.getAllByText(/Moves your progress/)).toHaveLength(1);
+    expect(screen.getAllByText(/Doesn't change your schedule/)).toHaveLength(3);
+  });
+});
+
+describe("Drop", () => {
+  it("is offered on Today with its rules on the tile", () => {
+    render(<App />);
+    const drop = screen.getByRole("button", { name: /^Drop/ });
+    expect((drop as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText(/All 67 · 3 lives · gets faster/)).toBeDefined();
+  });
+
+  it("opens with three lives and a falling element", () => {
+    render(<App />);
+    tap(/^Drop/);
+    expect(screen.getByLabelText("3 lives left")).toBeDefined();
+    expect(screen.getByText("0/67")).toBeDefined();
+    expect(document.querySelectorAll("[data-opt]")).toHaveLength(4);
+  });
+
+  it("clears an element on a correct tap and moves on", () => {
+    render(<App />);
+    tap(/^Drop/);
+    fireEvent.click(
+      [...document.querySelectorAll("[data-opt]")].find(
+        (o) => (o as HTMLElement).dataset.opt === fallingSymbol(),
+      )!,
+    );
+
+    expect(screen.getByText("1/67")).toBeDefined();
+    expect(screen.getByLabelText("3 lives left")).toBeDefined();
+  });
+
+  it("spends a life on a wrong tap", () => {
+    render(<App />);
+    tap(/^Drop/);
+    const wrong = [...document.querySelectorAll("[data-opt]")].find(
+      (o) => (o as HTMLElement).dataset.opt !== fallingSymbol(),
+    )!;
+    fireEvent.click(wrong);
+
+    expect(screen.getByLabelText("2 lives left")).toBeDefined();
+    expect(screen.getByText("0/67")).toBeDefined();
+  });
+
+  it("spends a life when the element lands", () => {
+    render(<App />);
+    tap(/^Drop/);
+    act(() => vi.advanceTimersByTime(6100)); // tier 0 fall time
+    expect(screen.getByLabelText("2 lives left")).toBeDefined();
+  });
+
+  it("ends the run after three landings and never touches the schedule", () => {
+    render(<App />);
+    tap(/^Drop/);
+    for (let i = 0; i < 3; i++) act(() => vi.advanceTimersByTime(6100));
+
+    expect(screen.getByRole("button", { name: /^Done$/ })).toBeDefined();
+    expect(load().mastery).toEqual({}); // Drop must not smuggle in mastery records
   });
 });

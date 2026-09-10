@@ -15,6 +15,11 @@ const MODES = [
     moves: false,
   },
   {
+    name: "Drop",
+    what: "The element's name falls down the screen and you tap its symbol before it lands. Three lives; a wrong tap costs one just like running out of time, and anything you miss comes back later in the run. Every ten you catch, it speeds up and adds another choice. Some of the wrong answers are made-up abbreviations that look like they ought to be right.",
+    moves: false,
+  },
+  {
     name: "Daily",
     what: "Six elements, the same six for everybody, changing at midnight. A quick habit rather than a lesson — play it even on days when nothing is due.",
     moves: false,
@@ -40,7 +45,7 @@ export function Help({ onBack }: { onBack(): void }) {
 
       <Body>
         <Section>
-          <H>The three ways to play</H>
+          <H>The four ways to play</H>
           {MODES.map((m) => (
             <Mode key={m.name}>
               <Name>{m.name}</Name>

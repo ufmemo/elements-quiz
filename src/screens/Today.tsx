@@ -13,6 +13,7 @@ interface Props {
   onReview(): void;
   onFree(): void;
   onRush(): void;
+  onFall(): void;
   onDaily(): void;
   onProgress(): void;
   onHelp(): void;
@@ -34,6 +35,7 @@ export function Today({
   onReview,
   onFree,
   onRush,
+  onFall,
   onDaily,
   onProgress,
   onHelp,
@@ -125,6 +127,15 @@ export function Today({
           <small>Same six for everyone</small>
         </Mode>
       </Modes>
+
+      <Wide type="button" onClick={onFall}>
+        <b>Drop</b>
+        <span>Catch them before they land</span>
+        <small>
+          All 67 · 3 lives · gets faster
+          {save.fallBest > 0 ? ` · best ${save.fallBest}` : ""}
+        </small>
+      </Wide>
 
       <Primary type="button" onClick={caughtUp ? onFree : onReview}>
         {caughtUp ? "Free practice · 10 elements" : `Review ${due} element${due === 1 ? "" : "s"}`}
@@ -234,6 +245,35 @@ const Caption = styled.p`
   text-align: center;
   margin: 9px 2px 0;
   text-wrap: balance;
+`;
+
+const Wide = styled.button`
+  ${tappable};
+  border: 2px solid ${C.faint};
+  border-radius: 14px;
+  background: ${C.surface};
+  padding: 12px 14px;
+  text-align: left;
+  font-family: ${FONT};
+  margin-bottom: 10px;
+  b {
+    display: block;
+    font-size: 1.05rem;
+    color: ${C.ink};
+    margin-bottom: 1px;
+  }
+  span {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: ${C.muted};
+  }
+  small {
+    display: block;
+    font-size: 0.68rem;
+    color: ${C.muted};
+    margin-top: 3px;
+  }
 `;
 
 const Modes = styled.div`

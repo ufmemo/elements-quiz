@@ -19,6 +19,7 @@ import { Session } from "../screens/Session";
 import { Results } from "../screens/Results";
 import { Progress } from "../screens/Progress";
 import { Help } from "../screens/Help";
+import { Fall } from "../screens/Fall";
 import { C, FONT } from "../ui/theme";
 
 /** Three destinations don't earn a tab bar. One stack, three levels. */
@@ -27,6 +28,7 @@ type Route =
   | { at: "session"; kind: SessionKind; cards: Card[] }
   | { at: "results"; summary: Summary }
   | { at: "progress" }
+  | { at: "fall" }
   | { at: "help" };
 
 export default function App() {
@@ -47,6 +49,20 @@ export default function App() {
       setRoute({ at: "session", kind, cards });
     },
     [save.settings.sound, update, day],
+  );
+
+  const openFall = useCallback(() => {
+    if (save.settings.sound) unlock();
+    update((s) => touchDay(s, day));
+    setRoute({ at: "fall" });
+  }, [save.settings.sound, update, day]);
+
+  const onFallFinish = useCallback(
+    (summary: Summary, correct: number) => {
+      update((s) => (correct > s.fallBest ? { ...s, fallBest: correct } : s));
+      setRoute({ at: "results", summary });
+    },
+    [update],
   );
 
   const onFinish = useCallback(
@@ -107,6 +123,7 @@ export default function App() {
             open("rush", buildRushCards(save.mastery, save.settings.timerless ? 20 : 60))
           }
           onDaily={() => open("daily", buildDailyCards(key))}
+          onFall={() => openFall()}
           onProgress={() => setRoute({ at: "progress" })}
           onHelp={() => setRoute({ at: "help" })}
           onToggleSound={() =>
@@ -133,6 +150,10 @@ export default function App() {
       {route.at === "results" && <Results summary={route.summary} onDone={home} />}
 
       {route.at === "progress" && <Progress save={save} onBack={home} />}
+
+      {route.at === "fall" && (
+        <Fall update={update} onExit={home} onFinish={onFallFinish} />
+      )}
 
       {route.at === "help" && <Help onBack={home} />}
     </>

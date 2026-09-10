@@ -69,6 +69,13 @@ describe("migrate", () => {
     expect(Object.keys(out.mastery)).toEqual(["Fe"]);
   });
 
+  it("defaults a high score that older saves don't have", () => {
+    // Saves written before Drop existed must still load.
+    expect(migrate({ rushBest: 12 }).fallBest).toBe(0);
+    expect(migrate({ rushBest: 12 }).rushBest).toBe(12);
+    expect(migrate({ fallBest: 41 }).fallBest).toBe(41);
+  });
+
   it("defaults settings and stamps the current version", () => {
     const out = migrate({});
     expect(out.settings).toEqual({ sound: true, motion: "full", timerless: false });

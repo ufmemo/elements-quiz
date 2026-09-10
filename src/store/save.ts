@@ -28,6 +28,8 @@ export interface Save {
   stats: Stats;
   settings: Settings;
   rushBest: number;
+  /** Most elements caught in a single Drop run. */
+  fallBest: number;
   daily: Record<string, DailyResult>;
 }
 
@@ -40,6 +42,7 @@ export function emptySave(): Save {
     stats: { dayStreak: 0, lastPlayedDay: -1, totalAnswers: 0 },
     settings: { sound: true, motion: "full", timerless: false },
     rushBest: 0,
+    fallBest: 0,
     daily: {},
   };
 }
@@ -70,6 +73,7 @@ export function migrate(raw: unknown): Save {
       timerless: r.settings?.timerless === true,
     },
     rushBest: num(r.rushBest, 0),
+    fallBest: num(r.fallBest, 0),
     daily: typeof r.daily === "object" && r.daily !== null ? r.daily : {},
   };
 }

@@ -26,6 +26,8 @@ export function Results({ summary, onDone }: Props) {
 
   const { correct, total } = summary;
   const isRush = summary.kind === "rush";
+  const isFall = summary.kind === "fall";
+  const wonFall = isFall && summary.correct === 67;
 
   return (
     <Screen>
@@ -34,15 +36,19 @@ export function Results({ summary, onDone }: Props) {
       <Spacer />
 
       <Score>
-        <Big>{isRush ? correct : `${correct}/${total}`}</Big>
+        <Big>{isRush || isFall ? correct : `${correct}/${total}`}</Big>
         <Sub>
           {total === 0
             ? "No answers this time"
-            : isRush
-              ? `correct in 60 seconds · best streak ${summary.bestStreak}`
-              : summary.perfect
-                ? "Every one right"
-                : `${summary.wrong} to see again`}
+            : isFall
+              ? wonFall
+                ? `All 67 caught · best streak ${summary.bestStreak}`
+                : `caught before the lives ran out · best streak ${summary.bestStreak}`
+              : isRush
+                ? `correct in 60 seconds · best streak ${summary.bestStreak}`
+                : summary.perfect
+                  ? "Every one right"
+                  : `${summary.wrong} to see again`}
         </Sub>
       </Score>
 
@@ -52,6 +58,7 @@ export function Results({ summary, onDone }: Props) {
             <Miss key={`${m.element.symbol}-${i}`}>
               <b>{m.element.symbol}</b> is {m.element.name}
               {m.chose && <Chose> &mdash; not {m.chose}</Chose>}
+              {!m.chose && isFall && <Chose> &mdash; ran out of time</Chose>}
               {m.element.mnemonic && <Mnemonic>{m.element.mnemonic}</Mnemonic>}
             </Miss>
           ))}

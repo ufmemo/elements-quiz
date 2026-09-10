@@ -245,6 +245,42 @@ await check("one back-press escapes however many sessions were opened", async ()
   assert(await page.getByText(/elements due today/).count(), "history entries stacked up");
 });
 
+await check("Drop opens, falls, and responds to a correct tap", async () => {
+  await fresh(page);
+  await page.getByRole("button", { name: /^Drop/ }).click();
+  await page.waitForTimeout(400);
+
+  assert(await page.locator("[data-falling]").count(), "nothing is falling");
+  assert((await page.locator("[data-opt]").count()) === 4, "expected 4 choices at tier 0");
+
+  // The name really moves down the screen.
+  const box1 = await page.locator("[data-falling]").boundingBox();
+  await page.waitForTimeout(900);
+  const box2 = await page.locator("[data-falling]").boundingBox();
+  assert(box2.y > box1.y + 20, `not falling: ${box1.y} -> ${box2.y}`);
+
+  const name = (await page.locator("[data-falling]").textContent()).trim();
+  const symbol = NAME_TO_SYMBOL.get(name);
+  assert(symbol, `unknown element "${name}"`);
+  await page.locator(`[data-opt="${symbol}"]`).click();
+  await page.waitForTimeout(300);
+  assert(await page.getByText("1/67").count(), "correct tap did not score");
+});
+
+await check("Drop ends after three landings and keeps the schedule clean", async () => {
+  await fresh(page);
+  await page.getByRole("button", { name: /^Drop/ }).click();
+  await page.waitForTimeout(300);
+  // Three full falls at tier 0 (6s each), untouched.
+  await page.waitForTimeout(6200 * 3);
+
+  assert(await page.getByRole("button", { name: /^Done$/ }).count(), "run did not end");
+  const mastery = await page.evaluate(
+    () => Object.keys(JSON.parse(localStorage.getItem("elements-quiz/save")).mastery).length,
+  );
+  assert(mastery === 0, `Drop wrote ${mastery} mastery records; it must write none`);
+});
+
 await check("no console errors anywhere in the run", () => {
   assert(consoleErrors.length === 0, `console errors: ${consoleErrors.join(" | ")}`);
 });
