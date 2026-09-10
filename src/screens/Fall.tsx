@@ -19,7 +19,7 @@ import type { Save } from "../store/save";
 const NAME_CLEARANCE = 64;
 
 /** How long the right answer is shown after a miss, before the run continues. */
-const REVEAL_MS = 500;
+const REVEAL_MS = 1000;
 
 interface Props {
   update(fn: (s: Save) => Save): void;

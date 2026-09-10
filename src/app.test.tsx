@@ -20,9 +20,9 @@ vi.mock("canvas-confetti", () => ({ default: { create: () => () => Promise.resol
 
 const HOLD_CORRECT = 620;
 const HOLD_WRONG = 2200;
-/** Drop: a tier-0 fall, plus the half-second the right answer is shown. */
+/** Drop: a tier-0 fall, plus the second the right answer is held on screen. */
 const FALL_MS = 6100;
-const REVEAL_MS = 560;
+const REVEAL_MS = 1060;
 
 beforeEach(() => {
   localStorage.clear();
@@ -620,11 +620,11 @@ describe("the answer reveal after a miss", () => {
       )!,
     );
 
-    // Still on the same element mid-reveal.
-    act(() => vi.advanceTimersByTime(300));
+    // Still on the same element most of a second later.
+    act(() => vi.advanceTimersByTime(900));
     expect(fallingSymbol()).toBe(target);
 
-    act(() => vi.advanceTimersByTime(300));
+    act(() => vi.advanceTimersByTime(200));
     expect(fallingSymbol()).not.toBe(target);
   });
 
@@ -658,7 +658,7 @@ describe("the answer reveal after a miss", () => {
     }
     // A second tap must not cost another life.
     fireEvent.click(document.querySelector("[data-opt]")!);
-    act(() => vi.advanceTimersByTime(600));
+    act(() => vi.advanceTimersByTime(REVEAL_MS));
     expect(screen.getByLabelText("2 lives left")).toBeDefined();
   });
 

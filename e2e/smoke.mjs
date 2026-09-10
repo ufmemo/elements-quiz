@@ -272,7 +272,7 @@ await check("Drop ends after three landings and keeps the schedule clean", async
   await page.getByRole("button", { name: /^Drop/ }).click();
   await page.waitForTimeout(300);
   // Three full falls at tier 0 (6s each), untouched.
-  await page.waitForTimeout((6200 + 600) * 3);
+  await page.waitForTimeout((6200 + 1100) * 3);
 
   assert(await page.getByRole("heading", { name: "Out of lives" }).count(), "run end not announced");
   assert(await page.getByText("of 67").count(), "score has no denominator");
@@ -299,7 +299,7 @@ await check("Drop ends after three landings and keeps the schedule clean", async
   assert(mastery === 0, `Drop wrote ${mastery} mastery records; it must write none`);
 });
 
-await check("a miss highlights the right chip for half a second", async () => {
+await check("a miss holds the right chip on screen for a full second", async () => {
   await fresh(page);
   await page.getByRole("button", { name: /^Drop/ }).click();
   await page.waitForTimeout(400);
@@ -309,7 +309,7 @@ await check("a miss highlights the right chip for half a second", async () => {
   await page.locator(`[data-opt]:not([data-opt="${target}"])`).first().click();
 
   // Mid-reveal: still the same element, right chip picked out in green.
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(400);
   assert(
     (await page.locator("[data-falling]").textContent()).trim() === name,
     "moved on before showing the answer",
@@ -323,8 +323,13 @@ await check("a miss highlights the right chip for half a second", async () => {
     "chips still tappable during the reveal",
   );
 
-  // And then it moves on.
-  await page.waitForTimeout(600);
+  // Still held most of a second in, then it moves on.
+  await page.waitForTimeout(450);
+  assert(
+    (await page.locator("[data-falling]").textContent()).trim() === name,
+    "reveal ended early",
+  );
+  await page.waitForTimeout(450);
   assert(
     (await page.locator("[data-falling]").textContent()).trim() !== name,
     "stuck on the missed element",
@@ -345,7 +350,7 @@ await check("a wrong tap shows the answer next to what was tapped", async () => 
     const chip = page.locator(`[data-opt]:not([data-opt="${target}"])`).first();
     tapped.push(await chip.getAttribute("data-opt"));
     await chip.click();
-    await page.waitForTimeout(750); // 500ms answer reveal, plus slack
+    await page.waitForTimeout(1250); // 1s answer reveal, plus slack
   }
 
   assert((await page.getByText(/you tapped/).count()) === 3, "tapped symbol not shown");
@@ -360,7 +365,7 @@ await check("a wrong tap shows the answer next to what was tapped", async () => 
 await check("Play again starts a fresh Drop run", async () => {
   await page.getByRole("button", { name: /^Drop/ }).click();
   await page.waitForTimeout(300);
-  await page.waitForTimeout((6200 + 600) * 3);
+  await page.waitForTimeout((6200 + 1100) * 3);
   await page.getByRole("button", { name: /Play again/ }).click();
   await page.waitForTimeout(500);
   assert(await page.getByLabel("3 lives left").count(), "lives were not reset");
